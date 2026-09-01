@@ -44,7 +44,7 @@ def enviar_recordatorio(actividad, horario, emoji):
         print("❌ Error: No se encontró DISCORD_WEBHOOK")
         return False
 
-    max_intentos = 3
+    max_intentos = 1
     
     for intento in range(max_intentos):
         try:
