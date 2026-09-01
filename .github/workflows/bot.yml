@@ -2,7 +2,7 @@ name: Bot Recordatorios
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '48 * * * *'
   workflow_dispatch:
 
 jobs:
