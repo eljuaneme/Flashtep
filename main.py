@@ -30,16 +30,17 @@ RECORDATORIOS = {
 ARCHIVO_ULTIMO_ENVIO = "ultimo_recordatorio.txt"
 
 def enviar_recordatorio(actividad, horario, emoji):
+def enviar_recordatorio(actividad, horario, emoji):
     mensaje = {
-"content": (
-f"@everyone\n"
-f"{emoji} **¡RECORDATORIO DE ACTIVIDAD!**\n\n"
-f"📌 Actividad: **{actividad}**\n"
-f"🕐 Horario: **{horario}**\n\n"
-f"⏳ ¡La actividad comienza en 10 minutos!"
-),
-"allowed_mentions": {"parse": ["everyone"]},
-}
+        "content": (
+            f"@everyone\n"
+            f"{emoji} **¡RECORDATORIO DE ACTIVIDAD!**\n\n"
+            f"📌 Actividad: **{actividad}**\n"
+            f"🕐 Horario: **{horario}**\n\n"
+            f"⏳ ¡La actividad comienza en 10 minutos!"
+        ),
+        "allowed_mentions": {"parse": ["everyone"]},
+    }
 
 ```
 if not WEBHOOK_URL:
