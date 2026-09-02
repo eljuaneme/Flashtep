@@ -70,7 +70,7 @@ def enviar_recordatorio(actividad, horario, emoji):
 
 
 def main():
-    hora_actual = datetime.now(tz=TZ).strftime("%H:00")
+    hora_actual = datetime.now(tz=TZ).strftime("%H:%M")
     print(f"🕐 Verificando - Hora UTC: {hora_actual}")
 
     if hora_actual in RECORDATORIOS:
