@@ -30,7 +30,7 @@ RECORDATORIOS = {
 ARCHIVO_ULTIMO_ENVIO = "ultimo_recordatorio.txt"
 
 def enviar_recordatorio(actividad, horario, emoji):
-mensaje = {
+    mensaje = {
 "content": (
 f"@everyone\n"
 f"{emoji} **¡RECORDATORIO DE ACTIVIDAD!**\n\n"
