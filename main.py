@@ -4,14 +4,8 @@ from datetime import datetime
 import requests
 import time
 
-
-# ============================================================
-# CONFIGURACIÓN
-# ============================================================
-
 WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
 TZ = ZoneInfo("UTC")
-
 
 RECORDATORIOS = {
     "23:50": ("Bus Urbano (Ruta A)", "00:00 - 01:00", "🚌"),
@@ -34,160 +28,58 @@ RECORDATORIOS = {
 }
 
 
-# ============================================================
-# ENVIAR MENSAJE A DISCORD
-# ============================================================
-
 def enviar_recordatorio(actividad, horario, emoji):
-
-    if not WEBHOOK_URL:
-        print("❌ Error: No se encontró DISCORD_WEBHOOK")
-        return False
-
     mensaje = {
         "content": (
             f"@everyone\n"
             f"{emoji} **¡RECORDATORIO DE ACTIVIDAD!**\n\n"
             f"📌 Actividad: **{actividad}**\n"
             f"🕐 Horario: **{horario}**\n\n"
-            f"¡La actividad comenzará en 10 minutos!"
+            f"¡La actividad comienza ahora!"
         ),
-        "allowed_mentions": {
-            "parse": ["everyone"]
-        }
+        "allowed_mentions": {"parse": ["everyone"]},
     }
 
-    try:
-
-        respuesta = requests.post(
-            WEBHOOK_URL,
-            json=mensaje,
-            timeout=10
-        )
-
-        if respuesta.status_code == 204:
-            print(f"✅ Recordatorio enviado: {actividad}")
-            return True
-
-        elif respuesta.status_code == 429:
-
-            print("⚠️ Discord indicó Rate Limit.")
-
-            retry_after = respuesta.headers.get(
-                "Retry-After",
-                "5"
-            )
-
-            print(
-                f"⏳ Discord pide esperar "
-                f"{retry_after} segundos."
-            )
-
-            return False
-
-        else:
-
-            print(
-                f"❌ Error de Discord: "
-                f"{respuesta.status_code}"
-            )
-
-            print(respuesta.text)
-
-            return False
-
-    except requests.RequestException as e:
-
-        print(f"❌ Error de conexión: {e}")
-
+    if not WEBHOOK_URL:
+        print("❌ Error: No se encontró DISCORD_WEBHOOK")
         return False
 
+    max_intentos = 1
+    
+    for intento in range(max_intentos):
+        try:
+            respuesta = requests.post(WEBHOOK_URL, json=mensaje, timeout=10)
+            
+            if respuesta.status_code == 204:
+                print(f"✅ Recordatorio enviado: {actividad}")
+                return True
+            elif respuesta.status_code == 429:
+                wait_time = int(respuesta.headers.get("Retry-After", 5))
+                print(f"⚠️ Rate limit. Esperando {wait_time}s (Intento {intento + 1}/{max_intentos})")
+                time.sleep(wait_time)
+            else:
+                print(f"⚠️ Error {respuesta.status_code} (Intento {intento + 1}/{max_intentos})")
+                if intento < max_intentos - 1:
+                    time.sleep(2)
+        except Exception as e:
+            print(f"⚠️ Error: {e} (Intento {intento + 1}/{max_intentos})")
+            if intento < max_intentos - 1:
+                time.sleep(2)
+    
+    return False
 
-# ============================================================
-# PROGRAMA PRINCIPAL
-# ============================================================
 
 def main():
+    hora_actual = datetime.now(tz=TZ).strftime("%H:00")
+    print(f"🕐 Verificando - Hora UTC: {hora_actual}")
 
-    print("🚀 Sistema de recordatorios iniciado")
-    print("🌎 Zona horaria: UTC")
-    print("⏰ Los anuncios se envían durante el minuto :50")
-    print()
+    if hora_actual in RECORDATORIOS:
+        actividad, horario, emoji = RECORDATORIOS[hora_actual]
+        enviar_recordatorio(actividad, horario, emoji)
+    else:
+        print(f"ℹ️ Sin actividades para {hora_actual}")
 
-    # Guarda exactamente el momento programado que ya fue enviado.
-    # Ejemplo:
-    # 2026-09-02 10:50
-    ultimo_envio = None
-
-    while True:
-
-        ahora = datetime.now(TZ)
-
-        fecha_hora_minuto = ahora.strftime(
-            "%Y-%m-%d %H:%M"
-        )
-
-        hora_minuto = ahora.strftime(
-            "%H:%M"
-        )
-
-        # ====================================================
-        # ¿Estamos en uno de los minutos programados?
-        # ====================================================
-
-        if hora_minuto in RECORDATORIOS:
-
-            # =================================================
-            # ¿Ya enviamos este mismo minuto?
-            # =================================================
-
-            if ultimo_envio != fecha_hora_minuto:
-
-                actividad, horario, emoji = RECORDATORIOS[
-                    hora_minuto
-                ]
-
-                print(
-                    f"🔔 Actividad detectada: "
-                    f"{fecha_hora_minuto} UTC"
-                )
-
-                enviado = enviar_recordatorio(
-                    actividad,
-                    horario,
-                    emoji
-                )
-
-                # =================================================
-                # SOLO marcamos como enviado si Discord respondió
-                # correctamente.
-                # =================================================
-
-                if enviado:
-
-                    ultimo_envio = fecha_hora_minuto
-
-                    print(
-                        f"🔒 Bloqueado hasta el próximo "
-                        f"horario: {hora_minuto}"
-                    )
-
-                    # Esperamos hasta que termine el minuto :50.
-                    #
-                    # Esto evita que el bucle vuelva a procesar
-                    # inmediatamente el mismo anuncio.
-                    segundos_restantes = 60 - ahora.second
-
-                    if segundos_restantes > 0:
-                        time.sleep(segundos_restantes)
-
-        # Comprobamos cada segundo.
-        time.sleep(1)
-
-
-# ============================================================
-# INICIO
-# ============================================================
 
 if __name__ == "__main__":
     main()
+    
