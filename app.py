@@ -1,11 +1,8 @@
-from flask import Flask
 from zoneinfo import ZoneInfo
+import os
 from datetime import datetime
 import requests
-import os
 import time
-
-app = Flask(__name__)
 
 WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
 TZ = ZoneInfo("UTC")
@@ -40,53 +37,93 @@ def enviar_recordatorio(actividad, horario, emoji):
             f"🕐 Horario: **{horario}**\n\n"
             f"¡La actividad comienza ahora!"
         ),
-        "allowed_mentions": {"parse": ["everyone"]},
+        "allowed_mentions": {
+            "parse": ["everyone"]
+        },
     }
 
     if not WEBHOOK_URL:
         print("❌ Error: No se encontró DISCORD_WEBHOOK")
         return False
 
-    max_intentos = 3
-    
-    for intento in range(max_intentos):
-        try:
-            respuesta = requests.post(WEBHOOK_URL, json=mensaje, timeout=10)
-            
-            if respuesta.status_code == 204:
-                print(f"✅ Recordatorio enviado: {actividad}")
-                return True
-            else:
-                print(f"⚠️ Error {respuesta.status_code}")
-                if intento < max_intentos - 1:
-                    time.sleep(2)
-        except Exception as e:
-            print(f"⚠️ Error: {e}")
-            if intento < max_intentos - 1:
-                time.sleep(2)
-    
+    try:
+        respuesta = requests.post(
+            WEBHOOK_URL,
+            json=mensaje,
+            timeout=10
+        )
+
+        if respuesta.status_code == 204:
+            print(f"✅ Recordatorio enviado: {actividad}")
+            return True
+
+        elif respuesta.status_code == 429:
+            wait_time = int(
+                respuesta.headers.get("Retry-After", 5)
+            )
+
+            print(
+                f"⚠️ Rate limit. "
+                f"Esperando {wait_time}s..."
+            )
+
+            time.sleep(wait_time)
+
+        else:
+            print(
+                f"⚠️ Error HTTP {respuesta.status_code}: "
+                f"{respuesta.text}"
+            )
+
+    except requests.RequestException as e:
+        print(f"❌ Error enviando el webhook: {e}")
+
     return False
 
 
-@app.route('/recordatorio', methods=['GET', 'POST'])
-def recordatorio():
-    hora_actual = datetime.now(tz=TZ).strftime("%H:00")
-    print(f"🕐 Verificando - Hora UTC: {hora_actual}")
+def main():
+    # Guarda el último minuto en el que se envió
+    # para evitar mensajes duplicados.
+    ultimo_recordatorio = None
 
-    if hora_actual in RECORDATORIOS:
-        actividad, horario, emoji = RECORDATORIOS[hora_actual]
-        enviar_recordatorio(actividad, horario, emoji)
-        return "✅ Recordatorio enviado", 200
-    else:
-        print(f"ℹ️ Sin actividades para {hora_actual}")
-        return "ℹ️ Sin actividades", 200
+    print("🚀 Sistema de recordatorios iniciado")
+    print("🌎 Zona horaria: UTC")
+    print("⏰ Esperando horarios programados...\n")
 
+    while True:
+        ahora = datetime.now(TZ)
 
-@app.route('/ping', methods=['GET', 'POST'])
-def ping():
-    return "✅ Servidor activo", 200
+        # Formato HH:MM, por ejemplo: 10:50
+        hora_actual = ahora.strftime("%H:%M")
+
+        # Solo entra si estamos dentro de uno de los minutos
+        # programados, por ejemplo entre 10:50:00 y 10:50:59.
+        if hora_actual in RECORDATORIOS:
+
+            # Evita enviar varias veces durante el mismo minuto.
+            if ultimo_recordatorio != hora_actual:
+
+                actividad, horario, emoji = RECORDATORIOS[hora_actual]
+
+                print(
+                    f"🔔 Recordatorio encontrado: "
+                    f"{hora_actual} UTC"
+                )
+
+                enviado = enviar_recordatorio(
+                    actividad,
+                    horario,
+                    emoji
+                )
+
+                # Solo marcamos el minuto como enviado
+                # si Discord confirmó correctamente el mensaje.
+                if enviado:
+                    ultimo_recordatorio = hora_actual
+
+        # Comprobamos cada 5 segundos.
+        time.sleep(5)
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    main()
