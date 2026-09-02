@@ -50,7 +50,7 @@ def enviar_recordatorio(actividad, horario, emoji):
             f"{emoji} **¡RECORDATORIO DE ACTIVIDAD!**\n\n"
             f"📌 Actividad: **{actividad}**\n"
             f"🕐 Horario: **{horario}**\n\n"
-            f"¡La actividad comienza ahora!"
+            f"¡La actividad comenzará en 10 minutos!"
         ),
         "allowed_mentions": {
             "parse": ["everyone"]
