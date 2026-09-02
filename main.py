@@ -4,8 +4,14 @@ from datetime import datetime
 import requests
 import time
 
+
+# ============================================================
+# CONFIGURACIÓN
+# ============================================================
+
 WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
 TZ = ZoneInfo("UTC")
+
 
 RECORDATORIOS = {
     "23:50": ("Bus Urbano (Ruta A)", "00:00 - 01:00", "🚌"),
@@ -28,7 +34,16 @@ RECORDATORIOS = {
 }
 
 
+# ============================================================
+# ENVIAR MENSAJE A DISCORD
+# ============================================================
+
 def enviar_recordatorio(actividad, horario, emoji):
+
+    if not WEBHOOK_URL:
+        print("❌ Error: No se encontró DISCORD_WEBHOOK")
+        return False
+
     mensaje = {
         "content": (
             f"@everyone\n"
@@ -39,14 +54,11 @@ def enviar_recordatorio(actividad, horario, emoji):
         ),
         "allowed_mentions": {
             "parse": ["everyone"]
-        },
+        }
     }
 
-    if not WEBHOOK_URL:
-        print("❌ Error: No se encontró DISCORD_WEBHOOK")
-        return False
-
     try:
+
         respuesta = requests.post(
             WEBHOOK_URL,
             json=mensaje,
@@ -58,56 +70,86 @@ def enviar_recordatorio(actividad, horario, emoji):
             return True
 
         elif respuesta.status_code == 429:
-            wait_time = int(
-                respuesta.headers.get("Retry-After", 5)
+
+            print("⚠️ Discord indicó Rate Limit.")
+
+            retry_after = respuesta.headers.get(
+                "Retry-After",
+                "5"
             )
 
             print(
-                f"⚠️ Rate limit. "
-                f"Esperando {wait_time}s..."
+                f"⏳ Discord pide esperar "
+                f"{retry_after} segundos."
             )
 
-            time.sleep(wait_time)
+            return False
 
         else:
+
             print(
-                f"⚠️ Error HTTP {respuesta.status_code}: "
-                f"{respuesta.text}"
+                f"❌ Error de Discord: "
+                f"{respuesta.status_code}"
             )
 
+            print(respuesta.text)
+
+            return False
+
     except requests.RequestException as e:
-        print(f"❌ Error enviando el webhook: {e}")
 
-    return False
+        print(f"❌ Error de conexión: {e}")
 
+        return False
+
+
+# ============================================================
+# PROGRAMA PRINCIPAL
+# ============================================================
 
 def main():
-    # Guarda el último minuto en el que se envió
-    # para evitar mensajes duplicados.
-    ultimo_recordatorio = None
 
     print("🚀 Sistema de recordatorios iniciado")
     print("🌎 Zona horaria: UTC")
-    print("⏰ Esperando horarios programados...\n")
+    print("⏰ Los anuncios se envían durante el minuto :50")
+    print()
+
+    # Guarda exactamente el momento programado que ya fue enviado.
+    # Ejemplo:
+    # 2026-09-02 10:50
+    ultimo_envio = None
 
     while True:
+
         ahora = datetime.now(TZ)
 
-        # Formato HH:MM, por ejemplo: 10:50
-        hora_actual = ahora.strftime("%H:%M")
+        fecha_hora_minuto = ahora.strftime(
+            "%Y-%m-%d %H:%M"
+        )
 
-        # Solo entra si estamos dentro de uno de los minutos
-        # programados, por ejemplo entre 10:50:00 y 10:50:59.
-        if hora_actual in RECORDATORIOS:
+        hora_minuto = ahora.strftime(
+            "%H:%M"
+        )
 
-            # Evita enviar varias veces durante el mismo minuto.
-            if ultimo_recordatorio != hora_actual:
+        # ====================================================
+        # ¿Estamos en uno de los minutos programados?
+        # ====================================================
 
-                actividad, horario, emoji = RECORDATORIOS[hora_actual]
+        if hora_minuto in RECORDATORIOS:
+
+            # =================================================
+            # ¿Ya enviamos este mismo minuto?
+            # =================================================
+
+            if ultimo_envio != fecha_hora_minuto:
+
+                actividad, horario, emoji = RECORDATORIOS[
+                    hora_minuto
+                ]
 
                 print(
-                    f"🔔 Recordatorio encontrado: "
-                    f"{hora_actual} UTC"
+                    f"🔔 Actividad detectada: "
+                    f"{fecha_hora_minuto} UTC"
                 )
 
                 enviado = enviar_recordatorio(
@@ -116,15 +158,36 @@ def main():
                     emoji
                 )
 
-                # Solo marcamos el minuto como enviado
-                # si Discord confirmó correctamente el mensaje.
+                # =================================================
+                # SOLO marcamos como enviado si Discord respondió
+                # correctamente.
+                # =================================================
+
                 if enviado:
-                    ultimo_recordatorio = hora_actual
 
-        # Comprobamos cada 5 segundos.
-        time.sleep(5)
+                    ultimo_envio = fecha_hora_minuto
 
+                    print(
+                        f"🔒 Bloqueado hasta el próximo "
+                        f"horario: {hora_minuto}"
+                    )
+
+                    # Esperamos hasta que termine el minuto :50.
+                    #
+                    # Esto evita que el bucle vuelva a procesar
+                    # inmediatamente el mismo anuncio.
+                    segundos_restantes = 60 - ahora.second
+
+                    if segundos_restantes > 0:
+                        time.sleep(segundos_restantes)
+
+        # Comprobamos cada segundo.
+        time.sleep(1)
+
+
+# ============================================================
+# INICIO
+# ============================================================
 
 if __name__ == "__main__":
     main()
-    
