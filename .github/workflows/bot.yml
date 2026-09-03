@@ -9,20 +9,44 @@ concurrency:
   group: bot-recordatorios
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   run:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - run: pip install -r requirements.txt
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Obtener hora UTC
+        id: hora
+        run: |
+          echo "clave=$(date -u '+%Y-%m-%d-%H-%M')" >> "$GITHUB_OUTPUT"
+
+      - name: Restaurar estado del recordatorio
+        uses: actions/cache/restore@v4
+        with:
+          path: recordatorio_enviado.txt
+          key: recordatorio-${{ steps.hora.outputs.clave }}
 
       - name: Ejecutar bot
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: python main.py
+
+      - name: Guardar estado del recordatorio
+        if: success() && hashFiles('recordatorio_enviado.txt') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: recordatorio_enviado.txt
+          key: recordatorio-${{ steps.hora.outputs.clave }}
