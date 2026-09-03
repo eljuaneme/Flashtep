@@ -30,7 +30,7 @@ RECORDATORIOS = {
 def enviar_recordatorio(actividad, horario, emoji):
     mensaje = {
         "content": (
-            f"@everyone\n"
+            "@everyone\n"
             f"{emoji} **¡RECORDATORIO DE ACTIVIDAD!**\n\n"
             f"📌 Actividad: **{actividad}**\n"
             f"🕐 Horario: **{horario}**\n\n"
@@ -56,31 +56,59 @@ def enviar_recordatorio(actividad, horario, emoji):
             print(f"✅ Recordatorio enviado: {actividad}")
             return True
 
-        print(f"⚠️ Error {respuesta.status_code}: {respuesta.text}")
+        print(f"⚠️ Discord respondió {respuesta.status_code}")
+        print(respuesta.text)
         return False
 
     except Exception as e:
-        print(f"⚠️ Error al enviar: {e}")
+        print(f"⚠️ Error al enviar el webhook: {e}")
         return False
 
 
 def main():
     ahora = datetime.now(tz=TZ)
+
     hora_actual = ahora.strftime("%H:%M")
+    clave = ahora.strftime("%Y-%m-%d-%H-%M")
 
-    print(f"🕐 Verificando - Hora UTC: {hora_actual}")
+    print(f"🕐 Hora UTC: {hora_actual}")
+    print(f"🔑 ID del recordatorio: {clave}")
 
+    # Si no hay actividad programada, no hacemos nada.
     if hora_actual not in RECORDATORIOS:
-        print(f"ℹ️ Sin actividades para {hora_actual}")
+        print("ℹ️ Sin actividades para esta hora.")
         return
 
     actividad, horario, emoji = RECORDATORIOS[hora_actual]
 
-    enviar_recordatorio(
+    # Crear archivo de confirmación para que GitHub Actions
+    # pueda guardarlo en la caché.
+    estado = "recordatorio_enviado.txt"
+
+    # Si el archivo ya existe, este horario ya fue enviado.
+    if os.path.exists(estado):
+        with open(estado, "r") as archivo:
+            ultimo = archivo.read().strip()
+
+        if ultimo == clave:
+            print("🛑 Este recordatorio ya fue enviado. No se enviará nuevamente.")
+            return
+
+    # Enviar el mensaje.
+    enviado = enviar_recordatorio(
         actividad,
         horario,
         emoji
     )
+
+    # Solo guardar el estado SI Discord confirmó el envío.
+    if enviado:
+        with open(estado, "w") as archivo:
+            archivo.write(clave)
+
+        print(f"💾 Estado guardado: {clave}")
+    else:
+        print("❌ No se guardó el estado porque el mensaje no fue enviado.")
 
 
 if __name__ == "__main__":
