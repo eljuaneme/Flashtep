@@ -26,8 +26,6 @@ RECORDATORIOS = {
     "21:50": ("Traslado de cliente VIP / Mudanza", "22:00 - 23:00", "⭐"),
 }
 
-ARCHIVO_ULTIMO_ENVIO = "ultimo_recordatorio.txt"
-
 
 def enviar_recordatorio(actividad, horario, emoji):
     mensaje = {
@@ -38,7 +36,9 @@ def enviar_recordatorio(actividad, horario, emoji):
             f"🕐 Horario: **{horario}**\n\n"
             f"⏳ ¡La actividad comienza en 10 minutos!"
         ),
-        "allowed_mentions": {"parse": ["everyone"]},
+        "allowed_mentions": {
+            "parse": ["everyone"]
+        }
     }
 
     if not WEBHOOK_URL:
@@ -56,49 +56,31 @@ def enviar_recordatorio(actividad, horario, emoji):
             print(f"✅ Recordatorio enviado: {actividad}")
             return True
 
-        print(f"⚠️ Error {respuesta.status_code}")
+        print(f"⚠️ Error {respuesta.status_code}: {respuesta.text}")
         return False
 
     except Exception as e:
-        print(f"⚠️ Error: {e}")
+        print(f"⚠️ Error al enviar: {e}")
         return False
-
-
-def ya_fue_enviado(clave):
-    if not os.path.exists(ARCHIVO_ULTIMO_ENVIO):
-        return False
-
-    with open(ARCHIVO_ULTIMO_ENVIO, "r") as archivo:
-        ultimo_envio = archivo.read().strip()
-
-    return ultimo_envio == clave
-
-
-def guardar_envio(clave):
-    with open(ARCHIVO_ULTIMO_ENVIO, "w") as archivo:
-        archivo.write(clave)
 
 
 def main():
     ahora = datetime.now(tz=TZ)
     hora_actual = ahora.strftime("%H:%M")
-    clave = ahora.strftime("%Y-%m-%d %H:%M")
 
     print(f"🕐 Verificando - Hora UTC: {hora_actual}")
 
-    if hora_actual in RECORDATORIOS:
-
-        if ya_fue_enviado(clave):
-            print("ℹ️ Este recordatorio ya fue enviado.")
-            return
-
-        actividad, horario, emoji = RECORDATORIOS[hora_actual]
-
-        if enviar_recordatorio(actividad, horario, emoji):
-            guardar_envio(clave)
-
-    else:
+    if hora_actual not in RECORDATORIOS:
         print(f"ℹ️ Sin actividades para {hora_actual}")
+        return
+
+    actividad, horario, emoji = RECORDATORIOS[hora_actual]
+
+    enviar_recordatorio(
+        actividad,
+        horario,
+        emoji
+    )
 
 
 if __name__ == "__main__":
