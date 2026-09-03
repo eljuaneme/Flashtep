@@ -6,6 +6,8 @@ import requests
 WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK")
 TZ = ZoneInfo("UTC")
 
+ARCHIVO_ESTADO = "ultimo_recordatorio.txt"
+
 RECORDATORIOS = {
     "23:50": ("Bus Urbano (Ruta A)", "00:00 - 01:00", "🚌"),
     "00:50": ("Traslado de cliente VIP", "01:00 - 02:00", "⭐"),
@@ -27,7 +29,24 @@ RECORDATORIOS = {
 }
 
 
+def obtener_ultimo_envio():
+    if not os.path.exists(ARCHIVO_ESTADO):
+        return ""
+
+    with open(ARCHIVO_ESTADO, "r") as archivo:
+        return archivo.read().strip()
+
+
+def guardar_envio(clave):
+    with open(ARCHIVO_ESTADO, "w") as archivo:
+        archivo.write(clave)
+
+
 def enviar_recordatorio(actividad, horario, emoji):
+    if not WEBHOOK_URL:
+        print("❌ No se encontró DISCORD_WEBHOOK")
+        return False
+
     mensaje = {
         "content": (
             "@everyone\n"
@@ -41,10 +60,6 @@ def enviar_recordatorio(actividad, horario, emoji):
         }
     }
 
-    if not WEBHOOK_URL:
-        print("❌ Error: No se encontró DISCORD_WEBHOOK")
-        return False
-
     try:
         respuesta = requests.post(
             WEBHOOK_URL,
@@ -56,59 +71,39 @@ def enviar_recordatorio(actividad, horario, emoji):
             print(f"✅ Recordatorio enviado: {actividad}")
             return True
 
-        print(f"⚠️ Discord respondió {respuesta.status_code}")
+        print(f"❌ Discord respondió {respuesta.status_code}")
         print(respuesta.text)
         return False
 
     except Exception as e:
-        print(f"⚠️ Error al enviar el webhook: {e}")
+        print(f"❌ Error al enviar: {e}")
         return False
 
 
 def main():
-    ahora = datetime.now(tz=TZ)
+    ahora = datetime.now(TZ)
 
     hora_actual = ahora.strftime("%H:%M")
-    clave = ahora.strftime("%Y-%m-%d-%H-%M")
+    clave = ahora.strftime("%Y-%m-%d %H:%M")
 
     print(f"🕐 Hora UTC: {hora_actual}")
-    print(f"🔑 ID del recordatorio: {clave}")
+    print(f"🔑 Clave: {clave}")
 
-    # Si no hay actividad programada, no hacemos nada.
     if hora_actual not in RECORDATORIOS:
-        print("ℹ️ Sin actividades para esta hora.")
+        print("ℹ️ No hay actividad programada.")
+        return
+
+    ultimo_envio = obtener_ultimo_envio()
+
+    if ultimo_envio == clave:
+        print("🛑 Este recordatorio YA fue enviado.")
         return
 
     actividad, horario, emoji = RECORDATORIOS[hora_actual]
 
-    # Crear archivo de confirmación para que GitHub Actions
-    # pueda guardarlo en la caché.
-    estado = "recordatorio_enviado.txt"
-
-    # Si el archivo ya existe, este horario ya fue enviado.
-    if os.path.exists(estado):
-        with open(estado, "r") as archivo:
-            ultimo = archivo.read().strip()
-
-        if ultimo == clave:
-            print("🛑 Este recordatorio ya fue enviado. No se enviará nuevamente.")
-            return
-
-    # Enviar el mensaje.
-    enviado = enviar_recordatorio(
-        actividad,
-        horario,
-        emoji
-    )
-
-    # Solo guardar el estado SI Discord confirmó el envío.
-    if enviado:
-        with open(estado, "w") as archivo:
-            archivo.write(clave)
-
-        print(f"💾 Estado guardado: {clave}")
-    else:
-        print("❌ No se guardó el estado porque el mensaje no fue enviado.")
+    if enviar_recordatorio(actividad, horario, emoji):
+        guardar_envio(clave)
+        print("💾 Estado guardado correctamente.")
 
 
 if __name__ == "__main__":
