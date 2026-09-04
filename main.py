@@ -62,18 +62,15 @@ try:
 except Exception as e:
     print(f"⚠️ Error: {e}")
     return False
-```
 
 def ya_fue_enviado(clave):
 if not os.path.exists(ARCHIVO_ULTIMO_ENVIO):
 return False
 
-```
 with open(ARCHIVO_ULTIMO_ENVIO, "r") as archivo:
     ultimo_envio = archivo.read().strip()
 
 return ultimo_envio == clave
-```
 
 def guardar_envio(clave):
 with open(ARCHIVO_ULTIMO_ENVIO, "w") as archivo:
@@ -82,7 +79,6 @@ archivo.write(clave)
 def main():
 ahora = datetime.now(tz=TZ)
 
-```
 hora_actual = ahora.strftime("%H:%M")
 
 # Incluye fecha + hora para evitar bloquear
@@ -104,7 +100,6 @@ if hora_actual in RECORDATORIOS:
 
 else:
     print(f"ℹ️ Sin actividades para {hora_actual}")
-```
 
 if **name** == "**main**":
 main()
