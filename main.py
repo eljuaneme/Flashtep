@@ -10,7 +10,7 @@ RECORDATORIOS = {
     "23:50": ("Bus Urbano (Ruta A)", "00:00 - 01:00", "🚌"),
     "00:50": ("Traslado de cliente VIP", "01:00 - 02:00", "⭐"),
     "01:50": ("Servicio de Taxi", "02:00 - 03:00", "🚕"),
-    "02:20": ("Servicio de Mudanza", "03:00 - 04:00", "🚚"),
+    "02:50": ("Servicio de Mudanza", "03:00 - 04:00", "🚚"),
     "04:50": ("Servicio de Taxi", "05:00 - 06:00", "🚕"),
     "06:50": ("Servicio de Mudanza", "07:00 - 08:00", "🚚"),
     "07:50": ("Bus Interurbano (Ruta B)", "08:00 - 09:00", "🚌"),
