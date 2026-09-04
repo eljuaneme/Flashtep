@@ -30,6 +30,10 @@ ARCHIVO_ULTIMO_ENVIO = "ultimo_recordatorio.txt"
 
 
 def enviar_recordatorio(actividad, horario, emoji):
+    if not WEBHOOK_URL:
+        print("❌ Error: No se encontró DISCORD_WEBHOOK")
+        return False
+
     mensaje = {
         "content": (
             f"@everyone\n"
@@ -40,12 +44,8 @@ def enviar_recordatorio(actividad, horario, emoji):
         ),
         "allowed_mentions": {
             "parse": ["everyone"]
-        },
+        }
     }
-
-    if not WEBHOOK_URL:
-        print("❌ Error: No se encontró DISCORD_WEBHOOK")
-        return False
 
     try:
         respuesta = requests.post(
@@ -58,12 +58,12 @@ def enviar_recordatorio(actividad, horario, emoji):
             print(f"✅ Recordatorio enviado: {actividad}")
             return True
 
-        print(f"⚠️ Error {respuesta.status_code}")
+        print(f"❌ Error de Discord: {respuesta.status_code}")
         print(respuesta.text)
         return False
 
     except Exception as e:
-        print(f"⚠️ Error: {e}")
+        print(f"❌ Error al enviar el webhook: {e}")
         return False
 
 
@@ -85,29 +85,42 @@ def guardar_envio(clave):
 def main():
     ahora = datetime.now(tz=TZ)
 
-    hora_actual = ahora.strftime("%H:%M")
+    hora_actual = ahora.hour
+    minuto_actual = ahora.minute
 
-    # Incluye fecha + hora para evitar bloquear
-    # el mismo horario del día siguiente.
-    clave = ahora.strftime("%Y-%m-%d %H:%M")
+    print(f"🕐 Hora UTC actual: {ahora.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    print(f"🕐 Verificando - Hora UTC: {hora_actual}")
-    print(f"🔑 Clave: {clave}")
+    # El workflow está programado para el minuto 50.
+    # Permitimos retrasos de GitHub Actions hasta el minuto 59.
+    if minuto_actual < 50:
+        print("ℹ️ Todavía no es la ventana del recordatorio.")
+        return
 
-    if hora_actual in RECORDATORIOS:
+    # Siempre buscamos la actividad programada para XX:50.
+    hora_recordatorio = f"{hora_actual:02d}:50"
 
-        if ya_fue_enviado(clave):
-            print("ℹ️ Este recordatorio ya fue enviado.")
-            return
+    print(f"🔎 Recordatorio programado: {hora_recordatorio}")
 
-        actividad, horario, emoji = RECORDATORIOS[hora_actual]
+    if hora_recordatorio not in RECORDATORIOS:
+        print(f"ℹ️ No hay actividad para {hora_recordatorio}")
+        return
 
-        if enviar_recordatorio(actividad, horario, emoji):
-            guardar_envio(clave)
-            print("💾 Estado guardado correctamente.")
+    # La clave usa la hora programada, no la hora real de inicio.
+    clave = ahora.strftime("%Y-%m-%d") + f" {hora_recordatorio}"
 
-    else:
-        print(f"ℹ️ Sin actividades para {hora_actual}")
+    print(f"🔑 Clave del recordatorio: {clave}")
+
+    if ya_fue_enviado(clave):
+        print("🛑 Este recordatorio ya fue enviado.")
+        return
+
+    actividad, horario, emoji = RECORDATORIOS[hora_recordatorio]
+
+    print(f"📌 Enviando: {actividad}")
+
+    if enviar_recordatorio(actividad, horario, emoji):
+        guardar_envio(clave)
+        print("💾 Estado guardado correctamente.")
 
 
 if __name__ == "__main__":
